@@ -39,18 +39,38 @@ func TestGenerate_ValidInputs(t *testing.T) {
 	potato := newTestImage(200, 200, color.RGBA{R: 255, G: 200, B: 100, A: 255})
 	cat := newTestImage(640, 480, color.RGBA{R: 100, G: 100, B: 100, A: 255})
 
-	img, err := g.Generate(potato, cat, "top text", "bottom text")
+	result, err := g.Generate(potato, cat, "top text", "bottom text")
 	if err != nil {
 		t.Fatalf("Generate() error: %v", err)
 	}
-	if img == nil {
-		t.Fatal("Generate() returned nil image")
+	if result == nil {
+		t.Fatal("Generate() returned nil GIF")
 	}
 
-	bounds := img.Bounds()
-	if bounds.Dx() != canvasWidth || bounds.Dy() != canvasHeight {
-		t.Errorf("Generate() image size = %dx%d, want %dx%d",
-			bounds.Dx(), bounds.Dy(), canvasWidth, canvasHeight)
+	if len(result.Image) != TotalFrames {
+		t.Errorf("Generate() frame count = %d, want %d", len(result.Image), TotalFrames)
+	}
+
+	if len(result.Delay) != TotalFrames {
+		t.Errorf("Generate() delay count = %d, want %d", len(result.Delay), TotalFrames)
+	}
+
+	for i, frame := range result.Image {
+		bounds := frame.Bounds()
+		if bounds.Dx() != canvasWidth || bounds.Dy() != canvasHeight {
+			t.Errorf("Generate() frame %d size = %dx%d, want %dx%d",
+				i, bounds.Dx(), bounds.Dy(), canvasWidth, canvasHeight)
+		}
+	}
+
+	for i, d := range result.Delay {
+		if d != FrameDelay {
+			t.Errorf("Generate() frame %d delay = %d, want %d", i, d, FrameDelay)
+		}
+	}
+
+	if result.LoopCount != 0 {
+		t.Errorf("Generate() LoopCount = %d, want 0 (infinite)", result.LoopCount)
 	}
 }
 
@@ -97,18 +117,24 @@ func TestGenerateRandom(t *testing.T) {
 	potato := newTestImage(200, 200, color.RGBA{R: 255, G: 200, B: 100, A: 255})
 	cat := newTestImage(640, 480, color.RGBA{R: 100, G: 100, B: 100, A: 255})
 
-	img, err := g.GenerateRandom(potato, cat)
+	result, err := g.GenerateRandom(potato, cat)
 	if err != nil {
 		t.Fatalf("GenerateRandom() error: %v", err)
 	}
-	if img == nil {
-		t.Fatal("GenerateRandom() returned nil image")
+	if result == nil {
+		t.Fatal("GenerateRandom() returned nil GIF")
 	}
 
-	bounds := img.Bounds()
-	if bounds.Dx() != canvasWidth || bounds.Dy() != canvasHeight {
-		t.Errorf("GenerateRandom() image size = %dx%d, want %dx%d",
-			bounds.Dx(), bounds.Dy(), canvasWidth, canvasHeight)
+	if len(result.Image) != TotalFrames {
+		t.Errorf("GenerateRandom() frame count = %d, want %d", len(result.Image), TotalFrames)
+	}
+
+	for i, frame := range result.Image {
+		bounds := frame.Bounds()
+		if bounds.Dx() != canvasWidth || bounds.Dy() != canvasHeight {
+			t.Errorf("GenerateRandom() frame %d size = %dx%d, want %dx%d",
+				i, bounds.Dx(), bounds.Dy(), canvasWidth, canvasHeight)
+		}
 	}
 }
 

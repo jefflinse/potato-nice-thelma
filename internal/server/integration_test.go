@@ -4,8 +4,7 @@ package server_test
 
 import (
 	"encoding/json"
-	"image"
-	_ "image/png"
+	"image/gif"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -47,21 +46,24 @@ func TestIntegration_MemeEndpoint(t *testing.T) {
 	}
 
 	ct := resp.Header.Get("Content-Type")
-	if ct != "image/png" {
-		t.Errorf("GET /meme: expected Content-Type image/png, got %q", ct)
+	if ct != "image/gif" {
+		t.Errorf("GET /meme: expected Content-Type image/gif, got %q", ct)
 	}
 
-	img, format, err := image.Decode(resp.Body)
+	result, err := gif.DecodeAll(resp.Body)
 	if err != nil {
-		t.Fatalf("GET /meme: response body is not a valid image: %v", err)
-	}
-	if format != "png" {
-		t.Errorf("GET /meme: expected png format, got %q", format)
+		t.Fatalf("GET /meme: response body is not a valid GIF: %v", err)
 	}
 
-	bounds := img.Bounds()
-	if bounds.Dx() == 0 || bounds.Dy() == 0 {
-		t.Errorf("GET /meme: decoded image has zero dimensions: %v", bounds)
+	if len(result.Image) == 0 {
+		t.Error("GET /meme: decoded GIF has zero frames")
+	}
+
+	for i, frame := range result.Image {
+		bounds := frame.Bounds()
+		if bounds.Dx() == 0 || bounds.Dy() == 0 {
+			t.Errorf("GET /meme: frame %d has zero dimensions: %v", i, bounds)
+		}
 	}
 }
 

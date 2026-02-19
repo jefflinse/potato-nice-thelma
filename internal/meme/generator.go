@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/color/palette"
+	stddraw "image/draw"
+	"image/gif"
 	"math/rand/v2"
 	"strings"
 
@@ -19,12 +22,12 @@ import (
 var fontBytes []byte
 
 const (
-	canvasWidth  = 800
-	canvasHeight = 600
-	fontSize     = 60
+	canvasWidth  = 640
+	canvasHeight = 480
+	fontSize     = 48
 	outlineShift = 2
-	topMargin    = 50
-	bottomMargin = 550
+	topMargin    = 40
+	bottomMargin = 440
 	potatoScale  = 0.4 // 40% of canvas width
 )
 
@@ -44,8 +47,8 @@ var memeTexts = []struct{ Top, Bottom string }{
 
 // Generator composites a potato image and a cat image with meme text.
 type Generator interface {
-	Generate(potatoImg, catImg image.Image, topText, bottomText string) (image.Image, error)
-	GenerateRandom(potatoImg, catImg image.Image) (image.Image, error)
+	Generate(potatoImg, catImg image.Image, topText, bottomText string) (*gif.GIF, error)
+	GenerateRandom(potatoImg, catImg image.Image) (*gif.GIF, error)
 }
 
 // MemeGenerator implements Generator using the fogleman/gg drawing library.
@@ -63,8 +66,9 @@ func NewGenerator() (*MemeGenerator, error) {
 }
 
 // Generate composites catImg as the background, overlays potatoImg in the
-// lower-right area, and renders topText/bottomText in classic meme style.
-func (g *MemeGenerator) Generate(potatoImg, catImg image.Image, topText, bottomText string) (image.Image, error) {
+// lower-right area, and renders topText/bottomText in classic meme style
+// across multiple frames to produce an animated GIF.
+func (g *MemeGenerator) Generate(potatoImg, catImg image.Image, topText, bottomText string) (*gif.GIF, error) {
 	if potatoImg == nil {
 		return nil, errors.New("potato image is required")
 	}
@@ -72,36 +76,84 @@ func (g *MemeGenerator) Generate(potatoImg, catImg image.Image, topText, bottomT
 		return nil, errors.New("cat image is required")
 	}
 
-	dc := gg.NewContext(canvasWidth, canvasHeight)
+	// Pre-scale images once before the frame loop.
+	scaledCat := scaleImage(catImg, canvasWidth, canvasHeight)
 
-	// Draw cat image scaled to fill the entire canvas.
-	drawScaled(dc, catImg, canvasWidth, canvasHeight, 0, 0)
-
-	// Draw potato image at ~40% canvas width, positioned in the lower-right.
 	potatoW := int(float64(canvasWidth) * potatoScale)
 	potatoH := scaleHeight(potatoImg, potatoW)
-	drawScaled(dc, potatoImg, potatoW, potatoH, canvasWidth-potatoW-20, canvasHeight-potatoH-60)
+	scaledPotato := scaleImage(potatoImg, potatoW, potatoH)
 
-	// Render meme text.
-	face := truetype.NewFace(g.font, &truetype.Options{Size: fontSize})
-	drawMemeText(dc, face, strings.ToUpper(topText), canvasWidth/2, topMargin)
-	drawMemeText(dc, face, strings.ToUpper(bottomText), canvasWidth/2, bottomMargin)
+	// Base position for the potato (lower-right).
+	potatoBaseX := canvasWidth - potatoW - 20
+	potatoBaseY := canvasHeight - potatoH - 60
 
-	return dc.Image(), nil
+	topTextUpper := strings.ToUpper(topText)
+	bottomTextUpper := strings.ToUpper(bottomText)
+
+	anim := &gif.GIF{
+		LoopCount: 0, // infinite loop
+	}
+
+	for i := range TotalFrames {
+		params := ComputeFrameParams(i, TotalFrames, canvasWidth, canvasHeight)
+
+		dc := gg.NewContext(canvasWidth, canvasHeight)
+
+		// Draw cat background with screen shake offset.
+		dc.DrawImage(scaledCat, params.ShakeDX, params.ShakeDY)
+
+		// Draw potato with bounce and rotation.
+		potatoDrawX := potatoBaseX
+		potatoDrawY := potatoBaseY + params.PotatoBounceY
+		potatoCenterX := float64(potatoDrawX) + float64(potatoW)/2
+		potatoCenterY := float64(potatoDrawY) + float64(potatoH)/2
+
+		dc.Push()
+		dc.RotateAbout(params.PotatoRotation, potatoCenterX, potatoCenterY)
+		dc.DrawImage(scaledPotato, potatoDrawX, potatoDrawY)
+		dc.Pop()
+
+		// Render meme text with animated color and size.
+		scaledFontSize := fontSize * params.FontScale
+		face := truetype.NewFace(g.font, &truetype.Options{Size: scaledFontSize})
+		drawMemeText(dc, face, topTextUpper, canvasWidth/2, topMargin, params.TextColor)
+		drawMemeText(dc, face, bottomTextUpper, canvasWidth/2, bottomMargin, params.TextColor)
+
+		// Draw sparkles.
+		for _, sp := range params.Sparkles {
+			drawSparkle(dc, sp.X, sp.Y, sp.Size, sp.Alpha)
+		}
+
+		// Convert frame to paletted image.
+		rgbaFrame, ok := dc.Image().(*image.RGBA)
+		if !ok {
+			// Fallback: copy into RGBA.
+			b := dc.Image().Bounds()
+			rgbaFrame = image.NewRGBA(b)
+			stddraw.Draw(rgbaFrame, b, dc.Image(), b.Min, stddraw.Src)
+		}
+
+		palettedImg := image.NewPaletted(image.Rect(0, 0, canvasWidth, canvasHeight), palette.Plan9)
+		stddraw.FloydSteinberg.Draw(palettedImg, palettedImg.Bounds(), rgbaFrame, image.Point{})
+
+		anim.Image = append(anim.Image, palettedImg)
+		anim.Delay = append(anim.Delay, FrameDelay)
+	}
+
+	return anim, nil
 }
 
 // GenerateRandom picks a random predefined text pair and calls Generate.
-func (g *MemeGenerator) GenerateRandom(potatoImg, catImg image.Image) (image.Image, error) {
+func (g *MemeGenerator) GenerateRandom(potatoImg, catImg image.Image) (*gif.GIF, error) {
 	pair := memeTexts[rand.IntN(len(memeTexts))]
 	return g.Generate(potatoImg, catImg, pair.Top, pair.Bottom)
 }
 
-// drawScaled renders src into dc at the given position and dimensions using
-// bilinear interpolation.
-func drawScaled(dc *gg.Context, src image.Image, w, h, x, y int) {
+// scaleImage renders src scaled to the given dimensions using bilinear interpolation.
+func scaleImage(src image.Image, w, h int) *image.RGBA {
 	scaled := image.NewRGBA(image.Rect(0, 0, w, h))
 	draw.BiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Over, nil)
-	dc.DrawImage(scaled, x, y)
+	return scaled
 }
 
 // scaleHeight returns the height that preserves src's aspect ratio at the
@@ -115,10 +167,10 @@ func scaleHeight(src image.Image, targetW int) int {
 	return targetW * srcH / srcW
 }
 
-// drawMemeText renders text with a black outline and white fill, centered at
+// drawMemeText renders text with a black outline and a colored fill, centered at
 // (cx, cy). The outline is produced by drawing the text 8 times at small
 // offsets in each cardinal and diagonal direction.
-func drawMemeText(dc *gg.Context, face font.Face, text string, cx, cy float64) {
+func drawMemeText(dc *gg.Context, face font.Face, text string, cx, cy float64, fillColor color.Color) {
 	dc.SetFontFace(face)
 
 	// Outline: draw in black at 8 surrounding offsets.
@@ -132,7 +184,26 @@ func drawMemeText(dc *gg.Context, face font.Face, text string, cx, cy float64) {
 		}
 	}
 
-	// Fill: draw in white on top.
-	dc.SetColor(color.White)
+	// Fill: draw in the provided color on top.
+	dc.SetColor(fillColor)
 	dc.DrawStringAnchored(text, cx, cy, 0.5, 0.5)
+}
+
+// drawSparkle renders a 4-pointed star shape at the given position.
+func drawSparkle(dc *gg.Context, x, y, size int, alpha float64) {
+	c := color.RGBA{R: 255, G: 255, B: 200, A: uint8(alpha * 255)} // warm yellow-white
+	dc.SetColor(c)
+	dc.SetLineWidth(2)
+	// Vertical line
+	dc.DrawLine(float64(x), float64(y-size), float64(x), float64(y+size))
+	dc.Stroke()
+	// Horizontal line
+	dc.DrawLine(float64(x-size), float64(y), float64(x+size), float64(y))
+	dc.Stroke()
+	// Diagonal lines (smaller)
+	half := float64(size) * 0.6
+	dc.DrawLine(float64(x)-half, float64(y)-half, float64(x)+half, float64(y)+half)
+	dc.Stroke()
+	dc.DrawLine(float64(x)+half, float64(y)-half, float64(x)-half, float64(y)+half)
+	dc.Stroke()
 }

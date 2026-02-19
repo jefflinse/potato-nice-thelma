@@ -2,14 +2,14 @@
 
 A Go web service that scrapes the internet for weird potato images and combines them with random cat photos to create awful memes. No API keys. No sign-ups. Just memes.
 
-Hit the `/meme` endpoint, get back a PNG of a potato-cat meme with classic white-on-black meme text. That's it. That's the whole thing.
+Hit the `/meme` endpoint, get back an animated GIF of a potato-cat meme with rainbow text, bouncing potatoes, sparkles, and screen shake. Maximum chaos. That's it. That's the whole thing.
 
 ## How It Works
 
 1. **Potato acquisition** — Scrapes Reddit (r/potato, r/PotatoesAreFunny, r/potatoes) for weird potato images. Falls back to a curated list of potato images if Reddit is unavailable.
 2. **Cat acquisition** — Fetches a random cat image from [CATAAS](https://cataas.com) (Cat as a Service — yes, that's a real thing)
-3. **Meme assembly** — Composites the potato onto the cat image and slaps on classic meme text (white text, black outline) using the [Anton](https://fonts.google.com/specimen/Anton) font
-4. **Delivery** — Returns the masterpiece as a PNG image
+3. **Meme assembly** — Composites the potato onto the cat image with chaotic effects: rainbow color-cycling text, bouncing/wobbling potato, sparkle overlays, and screen shake. Rendered frame-by-frame using the [Anton](https://fonts.google.com/specimen/Anton) font
+4. **Delivery** — Returns the masterpiece as an animated GIF (16 frames, ~1.3 second loop)
 
 Both images are fetched concurrently because we respect your time, even if we don't respect your taste in memes.
 
@@ -30,15 +30,15 @@ cd potato-nice-thelma
 make run
 
 # Generate a meme
-curl http://localhost:8080/meme > meme.png
-open meme.png
+curl http://localhost:8080/meme > meme.gif
+open meme.gif
 ```
 
 ## API Endpoints
 
 ### `GET /meme`
 
-Generate a random potato-cat meme. Returns a `image/png` response.
+Generate a random animated potato-cat meme. Returns an `image/gif` response with effects (rainbow text, bouncing potato, sparkles, screen shake).
 
 **Optional query parameters:**
 
@@ -53,10 +53,10 @@ Both `top` and `bottom` must be provided together to use custom text. If either 
 
 ```bash
 # Random meme text
-curl http://localhost:8080/meme > meme.png
+curl http://localhost:8080/meme > meme.gif
 
 # Custom text
-curl "http://localhost:8080/meme?top=when+you+realize&bottom=you+are+a+potato" > meme.png
+curl "http://localhost:8080/meme?top=when+you+realize&bottom=you+are+a+potato" > meme.gif
 ```
 
 ### `GET /health`

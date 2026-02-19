@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/png"
+	"image/gif"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
@@ -118,7 +118,7 @@ func (s *Server) handleMeme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result image.Image
+	var result *gif.GIF
 	var err error
 
 	if topText != "" && bottomText != "" {
@@ -133,9 +133,9 @@ func (s *Server) handleMeme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "image/png")
-	if err := png.Encode(w, result); err != nil {
-		slog.Error("failed to encode meme as PNG", "error", err)
+	w.Header().Set("Content-Type", "image/gif")
+	if err := gif.EncodeAll(w, result); err != nil {
+		slog.Error("failed to encode meme as GIF", "error", err)
 	}
 }
 

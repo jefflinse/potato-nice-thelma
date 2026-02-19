@@ -6,6 +6,8 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/color/palette"
+	"image/gif"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -35,20 +37,20 @@ func (m *mockFetcher) FetchRandomCat(_ context.Context) (image.Image, error) {
 }
 
 type mockGenerator struct {
-	img            image.Image
+	gif            *gif.GIF
 	err            error
 	generateCalled bool
 	randomCalled   bool
 }
 
-func (m *mockGenerator) Generate(_, _ image.Image, _, _ string) (image.Image, error) {
+func (m *mockGenerator) Generate(_, _ image.Image, _, _ string) (*gif.GIF, error) {
 	m.generateCalled = true
-	return m.img, m.err
+	return m.gif, m.err
 }
 
-func (m *mockGenerator) GenerateRandom(_, _ image.Image) (image.Image, error) {
+func (m *mockGenerator) GenerateRandom(_, _ image.Image) (*gif.GIF, error) {
 	m.randomCalled = true
-	return m.img, m.err
+	return m.gif, m.err
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +62,15 @@ func testImage() image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	img.Set(0, 0, color.RGBA{R: 255, A: 255})
 	return img
+}
+
+// testGIF creates a minimal 1-frame GIF for use in tests.
+func testGIF() *gif.GIF {
+	frame := image.NewPaletted(image.Rect(0, 0, 1, 1), palette.Plan9)
+	return &gif.GIF{
+		Image: []*image.Paletted{frame},
+		Delay: []int{8},
+	}
 }
 
 // pngServer returns an httptest.Server that serves a valid PNG at any path.
@@ -119,7 +130,7 @@ func TestHandleMeme_RandomText(t *testing.T) {
 	imgSrv := pngServer(t)
 	defer imgSrv.Close()
 
-	gen := &mockGenerator{img: testImage()}
+	gen := &mockGenerator{gif: testGIF()}
 	srv := NewServer(
 		&mockSearcher{url: imgSrv.URL + "/potato.png"},
 		&mockFetcher{img: testImage()},
@@ -137,13 +148,13 @@ func TestHandleMeme_RandomText(t *testing.T) {
 	}
 
 	ct := rec.Header().Get("Content-Type")
-	if ct != "image/png" {
-		t.Errorf("expected Content-Type image/png, got %q", ct)
+	if ct != "image/gif" {
+		t.Errorf("expected Content-Type image/gif, got %q", ct)
 	}
 
-	// Verify the body is a valid PNG.
-	if _, err := png.Decode(rec.Body); err != nil {
-		t.Errorf("response body is not a valid PNG: %v", err)
+	// Verify the body is a valid GIF.
+	if _, err := gif.DecodeAll(rec.Body); err != nil {
+		t.Errorf("response body is not a valid GIF: %v", err)
 	}
 
 	if !gen.randomCalled {
@@ -160,7 +171,7 @@ func TestHandleMeme_CustomText(t *testing.T) {
 	imgSrv := pngServer(t)
 	defer imgSrv.Close()
 
-	gen := &mockGenerator{img: testImage()}
+	gen := &mockGenerator{gif: testGIF()}
 	srv := NewServer(
 		&mockSearcher{url: imgSrv.URL + "/potato.png"},
 		&mockFetcher{img: testImage()},
@@ -178,12 +189,12 @@ func TestHandleMeme_CustomText(t *testing.T) {
 	}
 
 	ct := rec.Header().Get("Content-Type")
-	if ct != "image/png" {
-		t.Errorf("expected Content-Type image/png, got %q", ct)
+	if ct != "image/gif" {
+		t.Errorf("expected Content-Type image/gif, got %q", ct)
 	}
 
-	if _, err := png.Decode(rec.Body); err != nil {
-		t.Errorf("response body is not a valid PNG: %v", err)
+	if _, err := gif.DecodeAll(rec.Body); err != nil {
+		t.Errorf("response body is not a valid GIF: %v", err)
 	}
 
 	if !gen.generateCalled {
@@ -201,7 +212,7 @@ func TestHandleMeme_PartialCustomText_UsesRandom(t *testing.T) {
 	imgSrv := pngServer(t)
 	defer imgSrv.Close()
 
-	gen := &mockGenerator{img: testImage()}
+	gen := &mockGenerator{gif: testGIF()}
 	srv := NewServer(
 		&mockSearcher{url: imgSrv.URL + "/potato.png"},
 		&mockFetcher{img: testImage()},
@@ -232,7 +243,7 @@ func TestHandleMeme_GiphyFailure(t *testing.T) {
 	srv := NewServer(
 		&mockSearcher{err: errors.New("potato search failed")},
 		&mockFetcher{img: testImage()},
-		&mockGenerator{img: testImage()},
+		&mockGenerator{gif: testGIF()},
 		http.DefaultClient,
 	)
 
@@ -269,7 +280,7 @@ func TestHandleMeme_CataasFailure(t *testing.T) {
 	srv := NewServer(
 		&mockSearcher{url: imgSrv.URL + "/potato.png"},
 		&mockFetcher{err: errors.New("cataas is down")},
-		&mockGenerator{img: testImage()},
+		&mockGenerator{gif: testGIF()},
 		imgSrv.Client(),
 	)
 
@@ -343,7 +354,7 @@ func TestHandleMeme_PotatoImageDownloadFailure(t *testing.T) {
 	srv := NewServer(
 		&mockSearcher{url: errSrv.URL + "/potato.png"},
 		&mockFetcher{img: testImage()},
-		&mockGenerator{img: testImage()},
+		&mockGenerator{gif: testGIF()},
 		errSrv.Client(),
 	)
 
