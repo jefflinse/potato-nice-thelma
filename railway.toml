@@ -1,0 +1,24 @@
+# Railway deployment configuration for BrewPipes
+# https://docs.railway.app/reference/config-as-code
+#
+# This file exists only on the deploy-railway branch.
+# To deploy: merge main into deploy-railway and push.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+# Rebuild when these paths change
+watchPatterns = [
+  "cmd/**",
+  "internal/**",
+  "go.mod",
+  "go.sum"
+]
+
+[deploy]
+numReplicas = 1
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
