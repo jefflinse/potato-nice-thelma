@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>potato-nice-thelma</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 2.4rem;
+            margin-top: 1.5rem;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #ff6b6b);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: rainbow 3s linear infinite;
+        }
+
+        @keyframes rainbow {
+            to { background-position: 200% center; }
+        }
+
+        .subtitle {
+            color: #888;
+            margin-top: 0.3rem;
+            font-size: 0.95rem;
+        }
+
+        .display-area {
+            margin-top: 1.5rem;
+            width: 640px;
+            height: 480px;
+            background: #16213e;
+            border: 3px solid #333;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .display-area img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 9px;
+        }
+
+        .placeholder {
+            text-align: center;
+            color: #555;
+            user-select: none;
+        }
+
+        .placeholder .emoji {
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Spinner */
+        .spinner-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(22, 33, 62, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9px;
+            z-index: 10;
+        }
+
+        .spinner-overlay.hidden { display: none; }
+
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border: 5px solid #333;
+            border-top-color: #ffd93d;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .spinner-text {
+            margin-top: 1rem;
+            color: #ffd93d;
+            font-size: 0.95rem;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .controls {
+            margin-top: 1.2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 0.75rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+
+        button:active { transform: scale(0.96); }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-generate {
+            background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+            color: #1a1a2e;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-generate:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.5);
+        }
+
+        .btn-download {
+            background: #4d96ff;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(77, 150, 255, 0.3);
+        }
+
+        .btn-download:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(77, 150, 255, 0.5);
+        }
+
+        .error-msg {
+            margin-top: 0.8rem;
+            color: #ff6b6b;
+            font-size: 0.9rem;
+            min-height: 1.2rem;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 1.5rem;
+            color: #444;
+            font-size: 0.8rem;
+        }
+
+        footer a { color: #4d96ff; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 700px) {
+            .display-area { width: 95vw; height: auto; aspect-ratio: 4/3; }
+            h1 { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>potato-nice-thelma</h1>
+    <p class="subtitle">awful potato-cat memes, served fresh</p>
+
+    <div class="display-area" id="displayArea">
+        <div class="placeholder" id="placeholder">
+            <span class="emoji">🥔🐱</span>
+            <p>Hit <strong>Generate</strong> to create a meme</p>
+        </div>
+        <img id="memeImage" alt="Generated meme" style="display:none">
+        <div class="spinner-overlay hidden" id="spinner">
+            <div class="spinner"></div>
+            <div class="spinner-text">Generating chaos...</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-generate" id="btnGenerate" onclick="generateMeme()">Generate</button>
+        <button class="btn-download" id="btnDownload" onclick="downloadMeme()" disabled>Download</button>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <footer>
+        Potatoes from <a href="https://reddit.com/r/potato">Reddit</a> ·
+        Cats from <a href="https://cataas.com">CATAAS</a> ·
+        Powered by chaos
+    </footer>
+
+    <script>
+        let currentBlobURL = null;
+
+        async function generateMeme() {
+            const btnGen = document.getElementById('btnGenerate');
+            const btnDl = document.getElementById('btnDownload');
+            const spinner = document.getElementById('spinner');
+            const placeholder = document.getElementById('placeholder');
+            const img = document.getElementById('memeImage');
+            const errorMsg = document.getElementById('errorMsg');
+
+            // Reset state
+            btnGen.disabled = true;
+            btnDl.disabled = true;
+            errorMsg.textContent = '';
+            spinner.classList.remove('hidden');
+
+            try {
+                const resp = await fetch('/meme');
+
+                if (!resp.ok) {
+                    const body = await resp.json().catch(() => ({}));
+                    throw new Error(body.error || `Server returned ${resp.status}`);
+                }
+
+                const blob = await resp.blob();
+
+                // Revoke previous blob URL to free memory
+                if (currentBlobURL) {
+                    URL.revokeObjectURL(currentBlobURL);
+                }
+
+                currentBlobURL = URL.createObjectURL(blob);
+                img.src = currentBlobURL;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+                btnDl.disabled = false;
+            } catch (err) {
+                errorMsg.textContent = 'Failed to generate meme: ' + err.message;
+            } finally {
+                spinner.classList.add('hidden');
+                btnGen.disabled = false;
+            }
+        }
+
+        function downloadMeme() {
+            if (!currentBlobURL) return;
+            const a = document.createElement('a');
+            a.href = currentBlobURL;
+            a.download = 'potato-cat-meme.gif';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>

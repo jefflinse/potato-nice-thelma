@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -404,6 +405,39 @@ func TestWriteError(t *testing.T) {
 
 	if body["error"] != "i'm a teapot" {
 		t.Errorf("expected error message %q, got %q", "i'm a teapot", body["error"])
+	}
+}
+
+func TestHandleIndex(t *testing.T) {
+	t.Parallel()
+
+	srv := NewServer(&mockSearcher{}, &mockFetcher{}, &mockGenerator{}, http.DefaultClient)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	ct := rec.Header().Get("Content-Type")
+	if ct != "text/html; charset=utf-8" {
+		t.Errorf("expected Content-Type text/html; charset=utf-8, got %q", ct)
+	}
+
+	body := rec.Body.String()
+	if len(body) == 0 {
+		t.Error("expected non-empty HTML body")
+	}
+
+	if !strings.Contains(body, "potato-nice-thelma") {
+		t.Error("expected HTML to contain 'potato-nice-thelma'")
+	}
+
+	if !strings.Contains(body, "Generate") {
+		t.Error("expected HTML to contain 'Generate' button")
 	}
 }
 

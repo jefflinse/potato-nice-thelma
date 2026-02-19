@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -23,6 +24,9 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
+//go:embed index.html
+var indexHTML []byte
+
 // Server is the HTTP server for the potato-cat meme service.
 type Server struct {
 	potato     potato.Searcher
@@ -42,6 +46,7 @@ func NewServer(potatoClient potato.Searcher, cataasClient cataas.Fetcher, memeGe
 		router:     http.NewServeMux(),
 	}
 
+	s.router.HandleFunc("GET /{$}", s.handleIndex)
 	s.router.HandleFunc("GET /meme", s.handleMeme)
 	s.router.HandleFunc("GET /health", s.handleHealth)
 
@@ -51,6 +56,11 @@ func NewServer(potatoClient potato.Searcher, cataasClient cataas.Fetcher, memeGe
 // ServeHTTP delegates to the internal mux so Server implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
+}
+
+func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(indexHTML)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
